@@ -89,6 +89,25 @@ eda221::Assignment3::run()
 		LogError("Failed to load fallback shader");
 		return;
 	}
+
+	auto phong_shader = eda221::createProgram("phong.vert", "phong.frag");
+	if (phong_shader == 0u) {
+		LogError("Failed to load phong shader");
+		return;
+	}
+
+	auto bumpmap_shader = eda221::createProgram("bumpmap.vert", "bumpmap.frag");
+	if (bumpmap_shader == 0u) {
+		LogError("Failed to load bumpmap shader");
+		return;
+	}
+
+	auto cubemap_shader = eda221::createProgram("cubemap.vert", "cubemap.frag");
+	if (cubemap_shader == 0u) {
+		LogError("Failed to load cubemap shader");
+		return;
+	}
+
 	GLuint diffuse_shader = 0u, normal_shader = 0u, texcoord_shader = 0u;
 	auto const reload_shaders = [&diffuse_shader,&normal_shader,&texcoord_shader](){
 		if (diffuse_shader != 0u)
@@ -117,24 +136,39 @@ eda221::Assignment3::run()
 	};
 
 	auto camera_position = mCamera.mWorld.GetTranslation();
-	auto ambient = glm::vec3(0.2f, 0.2f, 0.2f);
-	auto diffuse = glm::vec3(0.7f, 0.2f, 0.4f);
-	auto specular = glm::vec3(1.0f, 1.0f, 1.0f);
-	auto shininess = 1.0f;
+	auto ambient = glm::vec3(0.0f, 0.0f, 0.0f);
+	auto diffuse = glm::vec3(0.8f, 0.6f, 0.2f);
+	auto specular = glm::vec3(0.3f, 0.3f, 0.3f);
+	auto shininess = 100.0f;
 	auto const phong_set_uniforms = [&light_position,&camera_position,&ambient,&diffuse,&specular,&shininess](GLuint program){
 		glUniform3fv(glGetUniformLocation(program, "light_position"), 1, glm::value_ptr(light_position));
 		glUniform3fv(glGetUniformLocation(program, "camera_position"), 1, glm::value_ptr(camera_position));
-		glUniform3fv(glGetUniformLocation(program, "ambient"), 1, glm::value_ptr(ambient));
-		glUniform3fv(glGetUniformLocation(program, "diffuse"), 1, glm::value_ptr(diffuse));
-		glUniform3fv(glGetUniformLocation(program, "specular"), 1, glm::value_ptr(specular));
+		glUniform3fv(glGetUniformLocation(program, "ka"), 1, glm::value_ptr(ambient));
+		glUniform3fv(glGetUniformLocation(program, "kd"), 1, glm::value_ptr(diffuse));
+		glUniform3fv(glGetUniformLocation(program, "ks"), 1, glm::value_ptr(specular));
 		glUniform1f(glGetUniformLocation(program, "shininess"), shininess);
 	};
+
 
 	auto polygon_mode = polygon_mode_t::fill;
 
 	auto circle_ring = Node();
 	circle_ring.set_geometry(circle_ring_shape);
 	circle_ring.set_program(fallback_shader, set_uniforms);
+
+	auto const sphereshape = parametric_shapes::createSphere(60u, 40u, 2.0f);
+	if (sphereshape.vao == 0u)
+		return;
+
+	auto sphere = Node();
+	sphere.set_geometry(sphereshape);
+	sphere.set_program(fallback_shader, set_uniforms);
+
+	auto sphere_texture = loadTexture2D("earth_bump.png");
+	//sphere.add_texture("sphere texture", sphere_texture);
+
+	auto sphere_cubemapTexture = loadTextureCubeMap("sunset_sky/posx.png", "sunset_sky/negx.png", "sunset_sky/posy.png", "sunset_sky/negy.png", "sunset_sky/negz.png", "sunset_sky/posz.png", true);
+	sphere.add_texture("cubemap texture", sphere_cubemapTexture, GL_TEXTURE_CUBE_MAP);
 
 	glEnable(GL_DEPTH_TEST);
 
@@ -164,17 +198,38 @@ eda221::Assignment3::run()
 
 		ImGui_ImplGlfwGL3_NewFrame();
 
+		//if (inputHandler->GetKeycodeState(GLFW_KEY_1) & JUST_PRESSED) {
+		//	circle_ring.set_program(fallback_shader, set_uniforms);
+		//}
+		//if (inputHandler->GetKeycodeState(GLFW_KEY_2) & JUST_PRESSED) {
+		//	circle_ring.set_program(diffuse_shader, set_uniforms);
+		//}
+		//if (inputHandler->GetKeycodeState(GLFW_KEY_3) & JUST_PRESSED) {
+		//	circle_ring.set_program(normal_shader, set_uniforms);
+		//}
+		//if (inputHandler->GetKeycodeState(GLFW_KEY_4) & JUST_PRESSED) {
+		//	circle_ring.set_program(texcoord_shader, set_uniforms);
+
 		if (inputHandler->GetKeycodeState(GLFW_KEY_1) & JUST_PRESSED) {
-			circle_ring.set_program(fallback_shader, set_uniforms);
+			sphere.set_program(fallback_shader, set_uniforms);
 		}
 		if (inputHandler->GetKeycodeState(GLFW_KEY_2) & JUST_PRESSED) {
-			circle_ring.set_program(diffuse_shader, set_uniforms);
+			sphere.set_program(diffuse_shader, set_uniforms);
 		}
 		if (inputHandler->GetKeycodeState(GLFW_KEY_3) & JUST_PRESSED) {
-			circle_ring.set_program(normal_shader, set_uniforms);
+			sphere.set_program(normal_shader, set_uniforms);
 		}
 		if (inputHandler->GetKeycodeState(GLFW_KEY_4) & JUST_PRESSED) {
-			circle_ring.set_program(texcoord_shader, set_uniforms);
+			sphere.set_program(texcoord_shader, set_uniforms);
+		}
+		if (inputHandler->GetKeycodeState(GLFW_KEY_5) & JUST_PRESSED) {
+			sphere.set_program(phong_shader, phong_set_uniforms);
+		}
+		if (inputHandler->GetKeycodeState(GLFW_KEY_6) & JUST_PRESSED) {
+			sphere.set_program(bumpmap_shader, phong_set_uniforms);
+		}
+		if (inputHandler->GetKeycodeState(GLFW_KEY_7) & JUST_PRESSED) {
+			sphere.set_program(cubemap_shader, set_uniforms);
 		}
 		if (inputHandler->GetKeycodeState(GLFW_KEY_Z) & JUST_PRESSED) {
 			polygon_mode = get_next_mode(polygon_mode);
@@ -202,7 +257,8 @@ eda221::Assignment3::run()
 		glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 		glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
 
-		circle_ring.render(mCamera.GetWorldToClipMatrix(), circle_ring.get_transform());
+		//circle_ring.render(mCamera.GetWorldToClipMatrix(), circle_ring.get_transform());
+		sphere.render(mCamera.GetWorldToClipMatrix(), sphere.get_transform());
 
 		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
