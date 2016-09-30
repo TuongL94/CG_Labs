@@ -134,5 +134,5 @@ Node::get_transform() const
 	auto const rotating = rotation_z * rotation_y * rotation_x;
 
 	//! \todo Use the same code as in assignment 1
-	return translating * rotating;
+	return translating * rotating * scaling;
 }
